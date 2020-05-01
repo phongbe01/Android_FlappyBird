@@ -5,18 +5,26 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.Typeface;
+import android.graphics.fonts.Font;
+import android.graphics.fonts.FontStyle;
 import android.os.Handler;
 import android.view.Display;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
 
+import com.example.flappybird.Model.BackGround;
 import com.example.flappybird.Model.Bird;
+import com.example.flappybird.Model.Tube;
 
 import java.util.ArrayList;
 import java.util.Random;
+
 
 public class GameView extends View {
 
@@ -24,31 +32,29 @@ public class GameView extends View {
     Runnable runnable;
     final  int UPDATE_MILLISECONDS = 30;
     Bitmap background;
-    Bitmap topTube, bottomTube;
     Display display;
     Point point;
     int SCREEN_WIDTH, SCREEN_HEIGHT;
-    Rect rect,rect1;
-    Bitmap[] birds;
+    Rect rect;
+    Paint paint;
+
+    //defined
     int BIRD_FRAME_0 = R.drawable.flappy_bird1_70x70;
     int BIRD_FRAME_1 = R.drawable.flappy_bird2_70x70;
     int BACKGROUND = R.drawable.background;
     int TOP_TUBE = R.drawable.top_tube;
     int BOTTOM_TUBE = R.drawable.bottom_tube;
-    int frame = 0;
     int velocity = 0, gravity = 3;
-    // check bird position
-    int bird_x, bird_y;
+    int numberOfTube = 3;
+    int tubeVelocity = 4; //tube speed
 
+    // check bird position
+    ArrayList<Tube> arr_tubes;
+    Bird bird;
     boolean gameState = false;
-    int gap = 400; //distance between top tube and bottom tube
-    int minTubeOffset, maxTubeOffset; // min, max of tube's height
-    int numberOfTube = 4;
     int distanceBetweenTubes;
-    int[] tubeX = new int[numberOfTube];
-    int[] topTubeY = new int[numberOfTube]; // height of top tube
     Random random;
-    int tubeVelocity = 10; //tube speed
+    int score = 0;
 
     public GameView(Context context) {
         super(context);
@@ -59,9 +65,10 @@ public class GameView extends View {
                 invalidate(); // call onDraw()
             }
         };
-        background = BitmapFactory.decodeResource(getResources(),BACKGROUND);
-        topTube = BitmapFactory.decodeResource(getResources(), TOP_TUBE);
-        bottomTube = BitmapFactory.decodeResource(getResources(), BOTTOM_TUBE);
+
+        BackGround bg = new BackGround();
+        background = bg.loadImage(getResources(),BACKGROUND);
+
         //create background
         display = ((Activity) getContext()).getWindowManager().getDefaultDisplay();
         point = new Point();
@@ -69,29 +76,32 @@ public class GameView extends View {
         SCREEN_WIDTH = point.x;
         SCREEN_HEIGHT = point.y;
         rect = new Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
         //create bird
-        birds = new Bitmap[2];
-        birds[0] = BitmapFactory.decodeResource(getResources(), BIRD_FRAME_0);
-        birds[1] = BitmapFactory.decodeResource(getResources(), BIRD_FRAME_1);
-
-        //set bird position
-        bird_x = SCREEN_WIDTH/2 - birds[frame].getWidth()/2;
-        bird_y = SCREEN_HEIGHT/2 - birds[frame].getHeight()/2; // position between x,y to the top of the screen
-
-        rect1 = new Rect(bird_x, SCREEN_HEIGHT/2 + birds[frame].getWidth()/2, SCREEN_WIDTH/2 + birds[frame].getWidth()/2, bird_y);
+        bird = new Bird(getResources(), BIRD_FRAME_0);
+        bird.setBird_x(SCREEN_WIDTH); // x =156
+        bird.setBird_y(SCREEN_HEIGHT);
 
         //create tubes
-        distanceBetweenTubes = SCREEN_WIDTH * 3/4;
-        minTubeOffset = gap/2;  //min height tube
-        maxTubeOffset = SCREEN_HEIGHT - minTubeOffset - gap; //max heigth tube
+        Tube tube = new Tube(getResources(), TOP_TUBE,BOTTOM_TUBE);
+        distanceBetweenTubes = SCREEN_WIDTH * 2/5;
+        arr_tubes = new ArrayList<Tube>();
         random = new Random();
         for (int i =0; i< numberOfTube;i++)
         {
-            tubeX[i] = SCREEN_WIDTH + i*distanceBetweenTubes; //position tube appear
-            topTubeY[i] = minTubeOffset + random.nextInt(maxTubeOffset - minTubeOffset + 1); //topTubeY will vary between minTube and maxTube offset
-
+            tube.setMaxTubeOffset(SCREEN_HEIGHT);
+            tube.setTubeX(SCREEN_WIDTH + distanceBetweenTubes); //position tube appear
+            tube.setTopTubeY(random); //topTubeY will vary between minTube and maxTube offset
+            arr_tubes.add(tube);
         }
 
+        //score
+        paint = new Paint();
+        paint.setTextSize(128);
+        paint.setColor(Color.WHITE);
+        Typeface typeface = paint.getTypeface();
+        Typeface bold = Typeface.create(typeface, Typeface.BOLD);
+        paint.setTypeface(bold);
     }
 
 
@@ -101,37 +111,38 @@ public class GameView extends View {
         super.onDraw(canvas);
         //draw the background
         canvas.drawBitmap(background, null, rect, null);
-        if (frame == 0)
-        {
-            frame = 1;
-        } else {
-            frame = 0;
-        }
         if (gameState) {
             // check when the bird fall on the screen
-            if (bird_y < SCREEN_HEIGHT - birds[0].getHeight() || velocity < 0) {
+            if (bird.getBird_y() < SCREEN_HEIGHT -bird.getBird().getHeight() || velocity < 0) {
                 velocity += gravity; // when the bird fall, it drop faster
-                bird_y += velocity;
+               bird.down(velocity);
             }
 
             //tube
             for (int i = 0; i< numberOfTube; i++)
             {
-                tubeX[i] -= tubeVelocity;
-                if (tubeX[i] < -topTube.getWidth())
+                Tube tube = arr_tubes.get(i);
+                tube.move(tubeVelocity);
+                if (tube.getTubeX() < -tube.getTopTube().getWidth())
                 {
-                    tubeX[i] += numberOfTube * distanceBetweenTubes;
-                    topTubeY[i] = minTubeOffset + random.nextInt(maxTubeOffset - minTubeOffset + 1);
+                    tube.makeRandomValue(numberOfTube, distanceBetweenTubes);
+                    tube.setTopTubeY(random);
+
                 }
-                canvas.drawBitmap(topTube, tubeX[i], topTubeY[i] - topTube.getHeight(), null );
-                canvas.drawBitmap(bottomTube, tubeX[i], topTubeY[i] + gap, null );
+                if (checkCollision(bird, tube))
+                {
+                    score ++;
+                }
+                tube.drawTopTube(canvas);
+                tube.drawBottomTube(canvas);
             }
 
         }
         //display bird at the center of the screen
-        canvas.drawBitmap(birds[frame], bird_x, bird_y, null );
+        bird.draw(canvas);
+        //score
+        canvas.drawText(score + "", SCREEN_WIDTH/2, 200, paint);
         handler.postDelayed(runnable, UPDATE_MILLISECONDS);
-
     }
 
     //get touch event
@@ -142,16 +153,19 @@ public class GameView extends View {
         if (action == MotionEvent.ACTION_DOWN) // that is tap is dedicated on screen
         {
             velocity = -30; // tap to jump
+            bird.up(velocity);
             gameState = true;
-            Toast.makeText(getContext(), String.valueOf(birds[frame].getScaledHeight(bird_y)), Toast.LENGTH_SHORT).show();
-
         }
         return true;
-
     }
 
-    public boolean checkCollision()
+    public boolean checkCollision(Bird bird, Tube tube)
     {
-        return true;
+        if (bird.getBird_w() == tube.getTubeX() + tube.getTubeX()/2)
+        {
+            return true;
+        } else {
+            return true;
+        }
     }
 }
