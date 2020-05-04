@@ -5,10 +5,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 
-import com.example.flappybird.R;
-
-import java.net.PortUnreachableException;
-
 public class Bird {
 
     private Bitmap bird;
@@ -46,6 +42,10 @@ public class Bird {
     public Bitmap getBird() {
         return bird;
     }
+    public void changeBirdImg(Resources resources, int file_path)
+    {
+        this.bird = BitmapFactory.decodeResource(resources, file_path);
+    }
 
     public void down(int speed)
     {
@@ -61,4 +61,5 @@ public class Bird {
     {
         canvas.drawBitmap(this.bird, this.bird_x, this.bird_y, null);
     }
+
 }
